@@ -25,6 +25,13 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [showRoutes, setShowRoutes] = useState(false);
 
+  const resetRoute = useCallback(() => {
+    setRouteOrder(null);
+    setDistance(null);
+    setDuration(null);
+    setSavedRouteId(null);
+  }, []);
+
   const handleCreateRoute = useCallback(() => {
     setStops([]);
     setRouteOrder(null);
@@ -35,33 +42,36 @@ export default function Dashboard() {
     setShowRoutes(false);
   }, []);
 
-  const handleStopsLoaded = useCallback((newStops: StopInput[]) => {
-    setStops(newStops);
-    setRouteOrder(null);
-    setDistance(null);
-    setDuration(null);
-    setSavedRouteId(null);
-    setError(null);
-  }, []);
+  const handleStopsLoaded = useCallback(
+    (newStops: StopInput[]) => {
+      setStops(newStops);
+      resetRoute();
+      setError(null);
+    },
+    [resetRoute]
+  );
 
   const handleAddStop = useCallback(
     (stop: StopInput) => {
       setStops((prev) => [...prev, stop]);
-      setRouteOrder(null);
-      setDistance(null);
-      setDuration(null);
-      setSavedRouteId(null);
+      resetRoute();
     },
-    []
+    [resetRoute]
   );
 
-  const handleRemoveStop = useCallback((id: number) => {
-    setStops((prev) => prev.filter((s) => s.id !== id));
-    setRouteOrder(null);
-    setDistance(null);
-    setDuration(null);
-    setSavedRouteId(null);
-  }, []);
+  const handleRemoveStop = useCallback(
+    (id: number) => {
+      setStops((prev) => prev.filter((s) => s.id !== id));
+      resetRoute();
+    },
+    [resetRoute]
+  );
+
+  const handleClearStops = useCallback(() => {
+    setStops([]);
+    resetRoute();
+    setError(null);
+  }, [resetRoute]);
 
   const handleOptimize = useCallback(async () => {
     if (stops.length < 2) {
@@ -75,6 +85,7 @@ export default function Dashboard() {
       setRouteOrder(result.route);
       setDistance(result.distance);
       setDuration(result.duration);
+      setSavedRouteId(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Optimization failed");
     } finally {
@@ -116,6 +127,7 @@ export default function Dashboard() {
       setDuration(route.total_duration);
       setSavedRouteId(route.id);
       setShowRoutes(false);
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load route");
     }
@@ -131,43 +143,87 @@ export default function Dashboard() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel */}
-        <div className="w-72 flex-shrink-0 border-r border-border bg-panel overflow-y-auto">
-          <div className="p-4 space-y-5">
+        <div className="w-72 flex-shrink-0 border-r border-border bg-panel flex flex-col">
+          <div className="flex-1 overflow-y-auto p-4 space-y-5">
             <CsvUpload onStopsLoaded={handleStopsLoaded} />
+
             <div className="border-t border-border" />
+
             <StopEntry
               onAddStop={handleAddStop}
-              nextId={stops.length > 0 ? Math.max(...stops.map((s) => s.id)) + 1 : 1}
+              nextId={
+                stops.length > 0
+                  ? Math.max(...stops.map((s) => s.id)) + 1
+                  : 1
+              }
             />
+
             <div className="border-t border-border" />
 
-            {/* Optimize button */}
-            <button
-              onClick={handleOptimize}
-              disabled={optimizing || stops.length < 2}
-              className="w-full px-4 py-3 text-sm font-medium rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {optimizing ? "Optimizing..." : "Optimize Route"}
-            </button>
-
-            {/* Save button */}
-            {routeOrder && !savedRouteId && (
+            {/* Action buttons */}
+            <div className="space-y-2">
               <button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full px-4 py-2.5 text-sm rounded-lg border border-success text-success hover:bg-success/10 disabled:opacity-40 transition-colors"
+                onClick={handleOptimize}
+                disabled={optimizing || stops.length < 2}
+                className="w-full px-4 py-3 text-sm font-medium rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                {saving ? "Saving..." : "Save Route"}
+                {optimizing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    Optimizing...
+                  </span>
+                ) : (
+                  "Optimize Route"
+                )}
               </button>
-            )}
 
-            {/* Saved confirmation */}
+              {routeOrder && !savedRouteId && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full px-4 py-2.5 text-sm rounded-lg border border-success text-success hover:bg-success/10 disabled:opacity-40 transition-colors"
+                >
+                  {saving ? "Saving..." : "Save Route"}
+                </button>
+              )}
+
+              {stops.length > 0 && !routeOrder && (
+                <button
+                  onClick={handleClearStops}
+                  className="w-full px-4 py-2 text-xs rounded-lg text-muted hover:text-red-400 hover:bg-red-400/5 transition-colors"
+                >
+                  Clear All Stops
+                </button>
+              )}
+            </div>
+
+            {/* Status messages */}
             {savedRouteId && (
-              <div className="text-center">
-                <p className="text-sm text-success">Route saved!</p>
+              <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-center">
+                <p className="text-sm text-success font-medium">
+                  Route #{savedRouteId} saved
+                </p>
                 <a
                   href={`/driver/${savedRouteId}`}
-                  className="text-xs text-accent hover:underline"
+                  className="text-xs text-accent hover:underline mt-1 inline-block"
                 >
                   Open Driver View &rarr;
                 </a>
@@ -175,14 +231,16 @@ export default function Dashboard() {
             )}
 
             {error && (
-              <p className="text-sm text-red-400 text-center">{error}</p>
+              <div className="rounded-lg border border-red-400/30 bg-red-400/5 p-3">
+                <p className="text-sm text-red-400 text-center">{error}</p>
+              </div>
             )}
           </div>
 
-          {/* Saved routes panel */}
+          {/* Saved routes section */}
           {showRoutes && (
-            <div className="border-t border-border">
-              <div className="p-3 border-b border-border">
+            <div className="border-t border-border flex-shrink-0 max-h-64 overflow-y-auto">
+              <div className="p-3 border-b border-border sticky top-0 bg-panel">
                 <span className="text-xs font-medium text-muted uppercase tracking-wide">
                   Saved Routes
                 </span>
@@ -195,7 +253,6 @@ export default function Dashboard() {
         {/* Map */}
         <div className="flex-1 relative">
           <Map stops={stops} routeOrder={routeOrder} />
-          {/* Stop count overlay */}
           {stops.length > 0 && (
             <div className="absolute top-3 left-3 px-3 py-1.5 bg-panel/90 rounded-lg border border-border text-xs text-muted backdrop-blur-sm">
               {stops.length} stop{stops.length !== 1 ? "s" : ""}
@@ -205,19 +262,21 @@ export default function Dashboard() {
         </div>
 
         {/* Right panel */}
-        <div className="w-80 flex-shrink-0 border-l border-border bg-panel">
-          <div className="p-3 border-b border-border">
+        <div className="w-80 flex-shrink-0 border-l border-border bg-panel flex flex-col">
+          <div className="p-3 border-b border-border flex-shrink-0">
             <span className="text-xs font-medium text-muted uppercase tracking-wide">
               {routeOrder ? "Optimized Route" : "Stops"}
             </span>
           </div>
-          <StopList
-            stops={stops}
-            routeOrder={routeOrder}
-            distance={distance}
-            duration={duration}
-            onRemoveStop={handleRemoveStop}
-          />
+          <div className="flex-1 overflow-hidden">
+            <StopList
+              stops={stops}
+              routeOrder={routeOrder}
+              distance={distance}
+              duration={duration}
+              onRemoveStop={handleRemoveStop}
+            />
+          </div>
         </div>
       </div>
     </div>

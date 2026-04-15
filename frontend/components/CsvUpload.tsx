@@ -7,6 +7,37 @@ interface CsvUploadProps {
   onStopsLoaded: (stops: StopInput[]) => void;
 }
 
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++; // skip escaped quote
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        fields.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
 export default function CsvUpload({ onStopsLoaded }: CsvUploadProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +54,7 @@ export default function CsvUpload({ onStopsLoaded }: CsvUploadProps) {
       try {
         const text = ev.target?.result as string;
         const lines = text
-          .split("\n")
+          .split(/\r?\n/)
           .map((l) => l.trim())
           .filter((l) => l.length > 0);
 
@@ -32,47 +63,63 @@ export default function CsvUpload({ onStopsLoaded }: CsvUploadProps) {
           return;
         }
 
-        const header = lines[0].toLowerCase();
-        if (!header.includes("lat") || !header.includes("lng")) {
-          setError("CSV must have 'address', 'lat', 'lng' columns");
+        const headerFields = parseCsvLine(lines[0]).map((c) => c.toLowerCase());
+        const latIdx = headerFields.indexOf("lat");
+        const lngIdx = headerFields.indexOf("lng");
+        const addrIdx = headerFields.indexOf("address");
+
+        if (latIdx === -1 || lngIdx === -1) {
+          setError("CSV header must include 'lat' and 'lng' columns");
           return;
         }
 
-        const cols = lines[0].split(",").map((c) => c.trim().toLowerCase());
-        const latIdx = cols.indexOf("lat");
-        const lngIdx = cols.indexOf("lng");
-        const addrIdx = cols.indexOf("address");
-
         const stops: StopInput[] = [];
+        const errors: string[] = [];
+
         for (let i = 1; i < lines.length; i++) {
-          const parts = lines[i].split(",").map((p) => p.trim());
+          const parts = parseCsvLine(lines[i]);
           const lat = parseFloat(parts[latIdx]);
           const lng = parseFloat(parts[lngIdx]);
 
           if (isNaN(lat) || isNaN(lng)) {
-            setError(`Row ${i + 1}: invalid lat/lng values`);
-            return;
+            errors.push(`Row ${i + 1}: invalid lat/lng`);
+            continue;
           }
           if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-            setError(`Row ${i + 1}: lat/lng out of range`);
-            return;
+            errors.push(`Row ${i + 1}: lat/lng out of range`);
+            continue;
           }
 
           stops.push({
             id: i,
             lat,
             lng,
-            address: addrIdx >= 0 ? parts[addrIdx] : "",
+            address: addrIdx >= 0 ? parts[addrIdx] || "" : "",
           });
         }
 
+        if (stops.length === 0) {
+          setError(
+            errors.length > 0
+              ? errors.join("; ")
+              : "No valid stops found in CSV"
+          );
+          return;
+        }
+
+        if (errors.length > 0) {
+          setError(`${errors.length} rows skipped: ${errors[0]}`);
+        }
+
         onStopsLoaded(stops);
-        setError(null);
       } catch {
         setError("Failed to parse CSV file");
       }
     };
     reader.readAsText(file);
+
+    // Reset input so the same file can be re-uploaded
+    e.target.value = "";
   }
 
   return (
@@ -95,12 +142,8 @@ export default function CsvUpload({ onStopsLoaded }: CsvUploadProps) {
           {fileName || "Choose CSV file..."}
         </button>
       </div>
-      {error && (
-        <p className="mt-2 text-xs text-red-400">{error}</p>
-      )}
-      <p className="mt-1.5 text-xs text-muted">
-        Format: address,lat,lng
-      </p>
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      <p className="mt-1.5 text-xs text-muted">Format: address,lat,lng</p>
     </div>
   );
 }

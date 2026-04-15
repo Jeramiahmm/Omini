@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Use relative URLs so requests go through Next.js rewrites (avoids CORS issues).
+// The rewrite in next.config.ts proxies /api/* to the FastAPI backend.
+const API_BASE = "";
 
 export interface StopInput {
   id: number;
@@ -93,4 +95,11 @@ export async function markStopComplete(
   });
   if (!res.ok) throw new Error("Failed to mark stop complete");
   return res.json();
+}
+
+export async function deleteRoute(routeId: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/routes/${routeId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete route");
 }

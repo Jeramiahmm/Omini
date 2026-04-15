@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -20,14 +20,16 @@ export default function Map({ stops, routeOrder }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const mapLoaded = useRef(false);
+  const [noToken, setNoToken] = useState(false);
 
-  // Initialize map
+  // Initialize map once
   useEffect(() => {
     if (!containerRef.current) return;
 
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-    if (!token) {
-      console.warn("NEXT_PUBLIC_MAPBOX_TOKEN not set");
+    if (!token || token === "pk.your_mapbox_token_here") {
+      setNoToken(true);
       return;
     }
 
@@ -35,25 +37,31 @@ export default function Map({ stops, routeOrder }: MapProps) {
     const map = new mapboxgl.Map({
       container: containerRef.current,
       style: "mapbox://styles/mapbox/dark-v11",
-      center: [-105.1019, 40.1672], // Longmont, CO
+      center: [-105.1019, 40.1672],
       zoom: 12,
     });
 
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    map.on("load", () => {
+      mapLoaded.current = true;
+    });
+
     mapRef.current = map;
 
     return () => {
+      mapLoaded.current = false;
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // Update markers and route line
+  // Update markers and route line when stops/routeOrder change
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || noToken) return;
 
-    // Clear existing markers
+    // Clear markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
@@ -63,42 +71,46 @@ export default function Map({ stops, routeOrder }: MapProps) {
           .filter((s): s is Stop => s !== undefined)
       : stops;
 
-    // Add markers
+    // Add numbered markers
     orderedStops.forEach((stop, idx) => {
       const el = document.createElement("div");
-      el.className = "omini-marker";
       el.style.cssText = `
         width: 28px; height: 28px; border-radius: 50%;
         background: #3b82f6; color: white;
         display: flex; align-items: center; justify-content: center;
-        font-size: 12px; font-weight: 700;
-        border: 2px solid #1e3a5f;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        font-size: 11px; font-weight: 700; font-family: system-ui, sans-serif;
+        border: 2px solid #1d4ed8;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+        cursor: pointer;
       `;
       el.textContent = String(idx + 1);
 
+      const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(
+        `<div style="color:#1a1a1a;font-size:13px;line-height:1.4;padding:2px 0">
+          <strong style="color:#3b82f6">#${idx + 1}</strong><br/>
+          ${stop.address || `${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`}
+        </div>`
+      );
+
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([stop.lng, stop.lat])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 20 }).setHTML(
-            `<div style="color:#222;font-size:13px;padding:2px"><strong>#${idx + 1}</strong><br/>${stop.address || `${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}`}</div>`
-          )
-        )
+        .setPopup(popup)
         .addTo(map);
 
       markersRef.current.push(marker);
     });
 
-    // Update route line
-    const updateLine = () => {
-      if (map.getSource("route")) {
-        map.removeLayer("route-line");
-        map.removeSource("route");
-      }
+    // Draw route line
+    const drawLine = () => {
+      // Remove old layer/source
+      if (map.getLayer("route-line")) map.removeLayer("route-line");
+      if (map.getSource("route")) map.removeSource("route");
 
       if (routeOrder && orderedStops.length >= 2) {
-        const coords = orderedStops.map((s) => [s.lng, s.lat] as [number, number]);
-        // Close the loop back to depot
+        const coords = orderedStops.map(
+          (s) => [s.lng, s.lat] as [number, number]
+        );
+        // Close loop back to depot
         coords.push(coords[0]);
 
         map.addSource("route", {
@@ -124,21 +136,41 @@ export default function Map({ stops, routeOrder }: MapProps) {
       }
     };
 
-    if (map.isStyleLoaded()) {
-      updateLine();
+    if (mapLoaded.current) {
+      drawLine();
     } else {
-      map.once("style.load", updateLine);
+      map.once("load", drawLine);
     }
 
-    // Fit bounds
+    // Fit bounds to stops
     if (orderedStops.length > 0) {
       const bounds = new mapboxgl.LngLatBounds();
       orderedStops.forEach((s) => bounds.extend([s.lng, s.lat]));
-      map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+      map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 500 });
     }
-  }, [stops, routeOrder]);
+  }, [stops, routeOrder, noToken]);
 
-  return (
-    <div ref={containerRef} className="w-full h-full" />
-  );
+  if (noToken) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-[#1a1a2e] text-muted gap-3">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+          <circle cx="12" cy="10" r="3" />
+        </svg>
+        <p className="text-sm">Set <code className="text-accent">NEXT_PUBLIC_MAPBOX_TOKEN</code> in <code>.env.local</code></p>
+        <p className="text-xs">Get a free token at mapbox.com</p>
+
+        {/* Show stops as a simple list when no map is available */}
+        {stops.length > 0 && (
+          <div className="mt-4 w-full max-w-md px-6">
+            <p className="text-xs text-muted mb-2 text-center">
+              {stops.length} stops loaded {routeOrder ? "(optimized)" : ""}
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return <div ref={containerRef} className="w-full h-full" />;
 }

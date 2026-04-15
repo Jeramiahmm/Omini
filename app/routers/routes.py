@@ -62,7 +62,14 @@ async def save_route(
     db: AsyncSession = Depends(get_db),
 ):
     """Save an optimized route with its stops."""
-    stop_map = {s.id: s for s in request.stops}
+    # Validate route_order contains only valid stop IDs
+    stop_ids_set = {s.id for s in request.stops}
+    for rid in request.route_order:
+        if rid not in stop_ids_set:
+            raise HTTPException(
+                status_code=422,
+                detail=f"route_order contains invalid stop ID: {rid}",
+            )
 
     # Create Stop records
     db_stops = {}
@@ -198,3 +205,17 @@ async def mark_stop_complete(
 
     route_stop.completed = True
     return {"status": "ok", "id": route_stop_id, "completed": True}
+
+
+@router.delete("/routes/{route_id}")
+async def delete_route(route_id: int, db: AsyncSession = Depends(get_db)):
+    """Delete a saved route and all its stops."""
+    result = await db.execute(
+        select(Route).where(Route.id == route_id)
+    )
+    route = result.scalar_one_or_none()
+    if not route:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    await db.delete(route)
+    return {"status": "ok", "id": route_id}

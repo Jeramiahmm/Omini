@@ -1,52 +1,51 @@
 @import "tailwindcss";
 
-:root {
-  --background: #141414;
-  --foreground: #e5e5e5;
-  --panel: #1c1c1c;
-  --border: #2a2a2a;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --success: #22c55e;
-  --muted: #737373;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-panel: var(--panel);
-  --color-border: var(--border);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-success: var(--success);
-  --color-muted: var(--muted);
+  --color-background: #141414;
+  --color-foreground: #e5e5e5;
+  --color-panel: #1c1c1c;
+  --color-border: #2a2a2a;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-success: #22c55e;
+  --color-muted: #737373;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans, system-ui), system-ui, -apple-system, sans-serif;
 }
 
-/* Mapbox overrides for dark theme */
+/* Mapbox overrides */
 .mapboxgl-ctrl-attrib,
 .mapboxgl-ctrl-logo {
   opacity: 0.5;
 }
 
-/* Scrollbar styling */
+.mapboxgl-popup-content {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--panel);
+  background: var(--color-panel);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--color-border);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  background: var(--color-muted);
+}
+
+/* Tabular nums for counters */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
