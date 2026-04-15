@@ -1,51 +1,117 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-background: #141414;
-  --color-foreground: #e5e5e5;
-  --color-panel: #1c1c1c;
-  --color-border: #2a2a2a;
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-success: #22c55e;
-  --color-muted: #737373;
+  --color-background: #06080f;
+  --color-foreground: #f0f2f5;
+  --color-panel: #0d1117;
+  --color-panel-hover: #151b25;
+  --color-surface: #161b22;
+  --color-border: #21262d;
+  --color-border-bright: #363d47;
+  --color-accent: #6366f1;
+  --color-accent-hover: #818cf8;
+  --color-accent-glow: #6366f140;
+  --color-success: #10b981;
+  --color-success-glow: #10b98130;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-muted: #7d8590;
+  --color-muted-foreground: #9ca3b0;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-body {
+html, body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans, system-ui), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glass panel effect */
+.glass {
+  background: linear-gradient(135deg, rgba(13,17,23,0.9), rgba(22,27,34,0.8));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Accent glow on focus */
+.glow-focus:focus {
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+/* Pulse for active route */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+.pulse-accent {
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Route line animation */
+@keyframes dash-flow {
+  to { stroke-dashoffset: -20; }
 }
 
 /* Mapbox overrides */
 .mapboxgl-ctrl-attrib,
 .mapboxgl-ctrl-logo {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .mapboxgl-popup-content {
-  border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  background: #161b22 !important;
+  color: #f0f2f5 !important;
+  border: 1px solid #21262d !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  padding: 10px 14px !important;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: #161b22 !important;
+}
+
+.mapboxgl-popup-close-button {
+  color: #7d8590 !important;
+  font-size: 18px !important;
+  padding: 4px 8px !important;
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-panel);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
+  background: #21262d;
+  border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted);
+  background: #363d47;
 }
 
-/* Tabular nums for counters */
+/* Tabular nums */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Smooth transitions for everything */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
 }
