@@ -1,131 +1,88 @@
 # Omini
 
-Route optimization and dispatch platform for trash collection operations in Longmont, Boulder, and Lyons, Colorado.
+Route optimization and dispatch platform for trash collection. A lightweight, local alternative to UPS Orion — built for small companies operating in Longmont, Boulder, and Lyons, Colorado.
 
-## Tech Stack
+## Stack
 
-- **Backend**: Python 3.11, FastAPI, OR-Tools, Uvicorn
-- **Database**: PostgreSQL with PostGIS (Neon)
-- **Frontend**: Next.js 16, Tailwind CSS v4, Mapbox GL JS
+- **App**: Next.js 16 (App Router, API Routes)
+- **Database**: PostgreSQL via Neon (serverless)
+- **Map**: Mapbox GL JS (dark theme)
+- **Optimizer**: TypeScript TSP solver (nearest-neighbor + 2-opt + or-opt)
+- **Deploy**: Vercel (single platform, zero infrastructure)
 
-## Local Setup
+## Deploy to Vercel
 
-### Backend
+### 1. Create a Neon Database
 
-```bash
-# Create virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate
+1. Go to [neon.tech](https://neon.tech) and create a free project
+2. In the SQL Editor, paste and run the contents of `frontend/lib/schema.sql`
+3. Copy your connection string from Connection Details
 
-# Install dependencies
-pip install -r requirements.txt
+### 2. Deploy to Vercel
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your Neon database credentials
+1. Push this repo to GitHub
+2. Go to [vercel.com](https://vercel.com) → New Project → Import your repo
+3. Vercel reads `vercel.json` and uses `frontend/` as the root
+4. Set environment variables:
 
-# Run database migrations
-alembic upgrade head
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Your Neon connection string |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | Token from [mapbox.com](https://account.mapbox.com) |
 
-# Start the backend
-python main.py
-```
+5. Deploy — that's it
 
-Backend runs at `http://localhost:8000`. API docs at `http://localhost:8000/docs`.
+### Neon + Vercel Integration (Optional)
 
-### Frontend
+Instead of manually setting `DATABASE_URL`, you can use Vercel's Neon integration:
+1. In Vercel dashboard → your project → Storage → Connect Store → Neon
+2. This auto-sets the `DATABASE_URL` environment variable
+
+## Local Development
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
 
-# Configure environment
+# Set up environment
 cp .env.local.example .env.local
-# Set NEXT_PUBLIC_MAPBOX_TOKEN (get one free at mapbox.com)
+# Fill in DATABASE_URL and NEXT_PUBLIC_MAPBOX_TOKEN
 
-# Start the dev server
 npm run dev
 ```
 
-Frontend runs at `http://localhost:3000`. API calls are proxied to the backend via Next.js rewrites.
+App runs at `http://localhost:3000`.
 
 ## Features
 
 ### Dispatcher Dashboard (/)
-- Upload stops via CSV (format: `address,lat,lng`)
-- Add stops manually with lat/lng coordinates
-- One-click route optimization using OR-Tools
-- Dark-themed Mapbox map with numbered markers and route line
-- Save optimized routes for drivers
-- Load and manage saved routes
+- Upload stops via CSV (`address,lat,lng`)
+- Add stops manually
+- One-click route optimization (2-500 stops)
+- Dark Mapbox map with numbered markers and route line
+- Save/load/delete routes
 
 ### Driver Mode (/driver/[routeId])
-- Mobile-first interface for drivers on the road
-- Current stop with address and coordinates
-- Next stop preview
-- Progress tracking (completed / total with progress bar)
-- Google Maps navigation (opens in new tab or mobile app)
-- Mark Complete to advance to next stop
-- View all stops in collapsible list
+- Mobile-first interface
+- Current stop + next stop preview
+- Progress tracking with completion percentage
+- Google Maps navigation link
+- Mark Complete to advance
+- View all stops list
 
-### Route Optimization
-- OR-Tools TSP solver with guided local search
-- Haversine distance matrix
-- Handles 2-500 stops
-- Performance: ~200ms for 50 stops, ~2.5s for 500 stops
+### Route Optimizer
+- Nearest-neighbor construction + 2-opt + or-opt local search
+- 100 stops in ~18ms, 500 stops in ~86ms
+- Handles the full Longmont/Boulder/Lyons service area
 
-## API Endpoints
+## API
 
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | /health | Health check |
-| POST | /api/optimize-route | Optimize stop order (stateless) |
-| POST | /api/routes | Save an optimized route |
-| GET | /api/routes | List saved routes with stats |
-| GET | /api/routes/{id} | Get route with all stops |
-| DELETE | /api/routes/{id} | Delete a route |
-| PATCH | /api/route-stops/{id}/complete | Mark a stop complete |
-
-### Example: Optimize Route
-
-```bash
-curl -X POST http://localhost:8000/api/optimize-route \
-  -H "Content-Type: application/json" \
-  -d '[
-    {"id": 1, "lat": 40.1672, "lng": -105.1019, "address": "123 Main St"},
-    {"id": 2, "lat": 40.1748, "lng": -105.0987, "address": "456 Oak Ave"},
-    {"id": 3, "lat": 40.1591, "lng": -105.1056, "address": "789 Pine Dr"}
-  ]'
-```
-
-Response:
-```json
-{
-  "route": [1, 2, 3],
-  "distance": 3681.0,
-  "duration": 441.72
-}
-```
-
-## Project Structure
-
-```
-Omini/
-├── app/                    # FastAPI backend
-│   ├── __init__.py         # App factory
-│   ├── config.py           # Settings from .env
-│   ├── database.py         # SQLAlchemy async engine
-│   ├── models/             # ORM models (Stop, Route, RouteStop)
-│   ├── schemas/            # Pydantic request/response models
-│   ├── routers/            # API endpoints
-│   └── services/           # OR-Tools optimizer
-├── migrations/             # Alembic database migrations
-├── frontend/               # Next.js frontend
-│   ├── app/                # Pages (dashboard, driver mode)
-│   ├── components/         # React components
-│   └── lib/                # API client
-├── main.py                 # Uvicorn entrypoint
-└── requirements.txt        # Python dependencies
-```
+|---|---|---|
+| GET | /api/health | Health check |
+| POST | /api/optimize-route | Optimize stop order |
+| POST | /api/routes | Save route |
+| GET | /api/routes | List routes |
+| GET | /api/routes/[id] | Get route detail |
+| DELETE | /api/routes/[id] | Delete route |
+| PATCH | /api/route-stops/[id]/complete | Mark stop done |
